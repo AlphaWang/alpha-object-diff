@@ -17,7 +17,6 @@ import java.util.Map;
 
 public class ObjectDiffTest {
 
-
     private Map<String, String> identities;
     private MockItems leftItems;
     private MockItems rightItems;
@@ -278,6 +277,33 @@ public class ObjectDiffTest {
     }
 
     @Test
+    public void testDiffIgnorePath() {
+        Date newDate = new Date();
+        newDate.setYear(2000);
+        rightItems.getItemList().get(0).setModifiedAt(newDate);
+        rightItems.getItemList().get(0).setItemId(11L);
+
+        String diffPath_collection1 = "/itemList/0/itemId";
+        String diffPath_collection2 = "/itemList/0/modifiedAt";
+
+        DiffResult diffResult = ObjectDiff.newInstance()
+            .withIdentities(identities)
+            .withLeft(leftItems)
+            .withRight(rightItems)
+            .withIgnorePaths(Lists.newArrayList(diffPath_collection2))
+            .diff();
+        Assert.assertNotNull(diffResult);
+        Assert.assertTrue(diffResult.hasDifference());
+
+        Map<String, Difference> differences = diffResult.getDifferences();
+        Assert.assertTrue(differences.size() == 1);
+        Assert.assertTrue(differences.containsKey(diffPath_collection1));
+
+        Difference difference = differences.get(diffPath_collection1);
+        Assert.assertEquals(diffPath_collection1, difference.getPath());
+    }
+
+    @Test
     public void testDiffCollectionDateWithKeyFunction() {
         Date newDate = new Date();
         newDate.setYear(2000);
@@ -485,5 +511,4 @@ public class ObjectDiffTest {
         Assert.assertEquals(diffPath, difference.getPath());
         Assert.assertEquals(Difference.DifferenceType.SIZE_NOT_SAME, difference.getType());
     }
-
 }

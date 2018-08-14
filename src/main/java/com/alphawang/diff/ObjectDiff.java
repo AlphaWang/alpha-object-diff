@@ -1,7 +1,7 @@
 package com.alphawang.diff;
 
+import com.alphawang.diff.util.ReflectionUtils;
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,6 +21,7 @@ import static com.alphawang.diff.Difference.DifferenceType.VALUE_NOT_EQUALS;
 import static com.alphawang.diff.util.ReflectionUtils.getCollectionItemClass;
 import static com.alphawang.diff.util.ReflectionUtils.getFields;
 import static com.alphawang.diff.util.ReflectionUtils.isSimpleClass;
+import static com.google.common.collect.Iterables.isEmpty;
 
 @Slf4j
 public class ObjectDiff {
@@ -32,9 +33,9 @@ public class ObjectDiff {
     private Map<Class, Function> collectionItemKeyFunction = new HashMap<>();
     private Object left;
     private Object right;
-    
+
     private ObjectDiff() { }
-    
+
     public static ObjectDiff newInstance() {
         return new ObjectDiff();
     }
@@ -63,15 +64,31 @@ public class ObjectDiff {
      * This is for collection diff. 
      * By default, it will compare collection items index by index, so if the collection items are same but the order is not the same, 
      * it will be considered as different.
-     * 
+     *
      * With collectionItemKeyFunction, you can specific a function to generate a key for collection items, then it will compare items 
      * by key instead of by index.
-     * 
+     *
      * @param collectionItemKeyFunction
      * @return
      */
     public ObjectDiff addCollectionItemKeyFunction(Class clazz, Function collectionItemKeyFunction) {
         this.collectionItemKeyFunction.put(clazz, collectionItemKeyFunction);
+        return this;
+    }
+
+    /**
+     * This is for collection diff. 
+     * By default, it will compare collection items index by index, so if the collection items are same but the order is not the same, 
+     * it will be considered as different.
+     *
+     * With collectionItemKeyFunction, you can specific a function to generate a key for collection items, then it will compare items 
+     * by key instead of by index.
+     *
+     * @param collectionItemKeyFunction
+     * @return
+     */
+    public ObjectDiff withCollectionItemKeyFunction(Map<Class, Function> collectionItemKeyFunction) {
+        this.collectionItemKeyFunction = collectionItemKeyFunction;
         return this;
     }
 
@@ -109,17 +126,17 @@ public class ObjectDiff {
         }
         return diffResult;
     }
-    
-    
+
+
     private void diff(DiffResult diffResult, String path, Object left, Object right) {
         if (ignore(path, ignoreFields)) {
             return;
         }
-        
+
         if (Objects.equals(left, right)) {
             return;
         }
-        
+
         if (left == null && right != null) {
             diffResult.add(Difference.of(path, NULL_VS_NONNULL, null, right));
             return;
@@ -142,17 +159,17 @@ public class ObjectDiff {
         } else {
             diffObject(diffResult, path, left, right);
         }
-        
+
     }
-    
+
     private boolean ignore(String path, List<String> ignorePaths) {
-        if (Strings.isNullOrEmpty(path) || ignorePaths == null || ignorePaths.isEmpty()) {
+        if (path == null || path.length() == 0 || isEmpty(ignorePaths)) {
             return false;
         }
-        
+
         for (String regex : ignorePaths) {
             if (path.matches(regex)) {
-                 return true;
+                return true;
             }
         }
         return false;
@@ -174,7 +191,7 @@ public class ObjectDiff {
     private void diffObject(DiffResult diffResult, String path, Object left, Object right) {
         Map<String, Field> leftFields = getFields(left.getClass());
         Map<String, Field> rightFields = getFields(right.getClass());
-        
+
         for (Map.Entry<String, Field> entry : leftFields.entrySet()) {
             String fieldName = entry.getKey();
             Field leftField = entry.getValue();
@@ -183,13 +200,13 @@ public class ObjectDiff {
                 log.debug("No field {} in {}", fieldName, right);
                 continue;
             }
-            
+
             leftField.setAccessible(true);
             rightField.setAccessible(true);
             try {
                 Object leftValue = leftField.get(left);
                 Object rightValue = rightField.get(right);
-                
+
                 String fieldPath = path + PATH_SEPARATOR + fieldName;
                 diff(diffResult, fieldPath, leftValue, rightValue);
             } catch (IllegalAccessException e) {
@@ -197,7 +214,7 @@ public class ObjectDiff {
                 continue;
             }
         }
-        
+
     }
 
     private void diffMap(DiffResult diffResult, String path, Object leftObj, Object rightObj) {
@@ -207,15 +224,15 @@ public class ObjectDiff {
         }
 
         Map left = (Map) leftObj;
-        Map right = (Map) rightObj; 
-        
+        Map right = (Map) rightObj;
+
         if (left != null && !left.isEmpty() && right != null && !right.isEmpty()) {
             if (left.size() == right.size()) {
                 for (Object key : left.keySet()) {
                     String mapEntryPath = path + PATH_SEPARATOR + key;
                     Object leftValue = left.get(key);
                     Object rightValue = right.get(key);
-                    
+
                     diff(diffResult, mapEntryPath, leftValue, rightValue);
                 }
             } else {
@@ -232,15 +249,15 @@ public class ObjectDiff {
 
         Collection left = (Collection) leftObj;
         Collection right = (Collection) rightObj;
-        
+
         if (!left.isEmpty() && !right.isEmpty()) {
             if (left.size() != right.size()) {
                 diffResult.add(Difference.of(path, SIZE_NOT_SAME, left.size() + " : " + right.size(), left, right));
                 return;
-            } 
-            
+            }
+
             Class itemClass = getCollectionItemClass(left);
-            Function keyFunction = getCollectionItemKeyFunction(itemClass);
+            Function keyFunction = ReflectionUtils.getValue(collectionItemKeyFunction, itemClass);
             if (keyFunction != null) {
                 try {
                     Map leftMap = Maps.uniqueIndex(left, keyFunction);
@@ -253,7 +270,7 @@ public class ObjectDiff {
             } else {
                 diffCollectionByIndex(diffResult, path, left, right);
             }
-            
+
         } else {
             diffResult.add(Difference.of(path, NULL_VS_NONNULL, left, right));
         }
@@ -271,32 +288,17 @@ public class ObjectDiff {
     private void diffArray(DiffResult diffResult, String path, Object leftObj, Object rightObj) {
         int leftLength = Array.getLength(leftObj);
         int rightLength = Array.getLength(rightObj);
-        
+
         if (leftLength != rightLength) {
             diffResult.add(Difference.of(path, SIZE_NOT_SAME, leftLength + " : " + rightLength, leftObj, rightObj));
             return;
         }
-        
+
         for (int i = 0; i < leftLength; i++) {
             String arrayPath = path + PATH_SEPARATOR + i;
             diff(diffResult, arrayPath, Array.get(leftObj, i), Array.get(rightObj, i));
         }
     }
-    
-    private Function getCollectionItemKeyFunction(Class clazz) {
-        if (collectionItemKeyFunction == null || collectionItemKeyFunction.size() <= 0) {
-            return null;
-        }
 
-        while (clazz != null && clazz != Object.class) {
-            Function function = collectionItemKeyFunction.get(clazz);
-            if (function != null) {
-                return function;
-            }
-            clazz = clazz.getSuperclass();
-        }
-
-        return null;
-    }
 
 }

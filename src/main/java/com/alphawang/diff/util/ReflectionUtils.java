@@ -13,9 +13,9 @@ import java.util.List;
 import java.util.Map;
 
 public class ReflectionUtils {
-    
+
     private static final List<String> IGNORE_FIELDS = ImmutableList.of("serialVersionUID");
-    
+
     public static Map<String, Field> getFields(Class clazz) {
         Map<String, Field> fields = new LinkedHashMap<>();
 
@@ -31,17 +31,41 @@ public class ReflectionUtils {
         return fields;
     }
 
+    public static Class getMapValueClass(Map map) {
+        if (map == null || map.size() <= 0) {
+            return Object.class;
+        }
+
+        return getCollectionItemClass(map.values());
+    }
+
     public static Class getCollectionItemClass(Collection collection) {
         if (collection == null || collection.size() <= 0) {
             return Object.class;
         }
-        
+
         Object item = collection.iterator().next();
         if (item == null) {
             return Object.class;
         }
-        
+
         return item.getClass();
+    }
+
+    public static <T> T getValue(Map<Class, T> map, Class key) {
+        if (map == null || map.size() <= 0) {
+            return null;
+        }
+
+        while (key != null && key != Object.class) {
+            T value = map.get(key);
+            if (value != null) {
+                return value;
+            }
+            key = key.getSuperclass();
+        }
+
+        return null;
     }
 
     public static boolean isSimpleClass(Object obj) {
