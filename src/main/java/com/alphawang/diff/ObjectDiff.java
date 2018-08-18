@@ -18,10 +18,10 @@ import static com.alphawang.diff.Difference.DifferenceType.NULL_VS_NONNULL;
 import static com.alphawang.diff.Difference.DifferenceType.SIZE_NOT_SAME;
 import static com.alphawang.diff.Difference.DifferenceType.TYPE_NOT_SAME;
 import static com.alphawang.diff.Difference.DifferenceType.VALUE_NOT_EQUALS;
+import static com.alphawang.diff.util.DiffUtils.isEmpty;
 import static com.alphawang.diff.util.ReflectionUtils.getCollectionItemClass;
 import static com.alphawang.diff.util.ReflectionUtils.getFields;
 import static com.alphawang.diff.util.ReflectionUtils.isSimpleClass;
-import static com.google.common.collect.Iterables.isEmpty;
 
 @Slf4j
 public class ObjectDiff {

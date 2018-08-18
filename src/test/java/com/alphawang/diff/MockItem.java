@@ -11,6 +11,7 @@ import java.util.Date;
 public class MockItem {
 
     private Long itemId;
+    private String name;
     private LocalDate createdAt;
     private Date modifiedAt;
 }

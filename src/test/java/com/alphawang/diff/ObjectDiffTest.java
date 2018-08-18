@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+
 public class ObjectDiffTest {
 
     private Map<String, String> identities;
@@ -511,4 +512,6 @@ public class ObjectDiffTest {
         Assert.assertEquals(diffPath, difference.getPath());
         Assert.assertEquals(Difference.DifferenceType.SIZE_NOT_SAME, difference.getType());
     }
+
+
 }
